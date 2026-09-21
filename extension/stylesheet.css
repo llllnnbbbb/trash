@@ -1,0 +1,24 @@
+.dock-trash-drop-hover {
+    background-color: rgba(224, 27, 36, 0.38);
+    border-radius: 18px;
+    box-shadow: inset 0 0 0 2px rgba(224, 27, 36, 0.95);
+}
+
+.dock-trash-fallback {
+    padding: 6px;
+    border-radius: 16px;
+}
+
+.dock-trash-dialog-title {
+    font-weight: 800;
+    font-size: 16pt;
+}
+
+.dock-trash-dialog-body {
+    padding-top: 12px;
+}
+
+.dock-trash-dialog-warning {
+    padding-top: 10px;
+    font-weight: 600;
+}

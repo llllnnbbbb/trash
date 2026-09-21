@@ -1,0 +1,8 @@
+{
+    "uuid": "dock-trash@ubuntu-trash",
+    "name": "Ubuntu Dock Trash",
+    "description": "Drop app icons from the GNOME app grid or Ubuntu Dock onto the trash to uninstall apt/dpkg apps and AppImages, or to trash regular files.",
+    "shell-version": ["50"],
+    "version": 3,
+    "gettext-domain": "dock-trash"
+}
