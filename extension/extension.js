@@ -129,22 +129,14 @@ export default class DockTrashExtension extends Extension {
         });
     }
 
-    _keepOverview() {
-        if (!Main.overview.visible)
-            Main.overview.show();
-    }
-
     async _inspectAndConfirm({title, inspect, apply}) {
         this._busy = true;
-        const stayInOverview = Main.overview.visible;
         try {
             const info = await inspect();
             console.log(`dock-trash: inspect ${JSON.stringify(info)}`);
             if (!info.ok || info.blocked) {
                 this._showMessage(_('无法删除'), this._blockedMessage(info));
                 this._busy = false;
-                if (stayInOverview)
-                    this._keepOverview();
                 return;
             }
             this._closeDialog();
@@ -153,26 +145,22 @@ export default class DockTrashExtension extends Extension {
                 title: copy.title,
                 body: copy.body,
                 confirmLabel: copy.confirmLabel,
-                onConfirm: () => this._apply(apply, info, stayInOverview),
+                onConfirm: () => this._apply(apply, info),
             });
             this._dialog.connect('closed', () => {
                 this._dialog = null;
                 if (!this._applying)
                     this._busy = false;
-                if (stayInOverview)
-                    this._keepOverview();
             });
             this._dialog.open();
         } catch (error) {
             console.error(`dock-trash inspect failed: ${error}`);
             this._busy = false;
             this._showMessage(_('无法删除'), error.message || String(error));
-            if (stayInOverview)
-                this._keepOverview();
         }
     }
 
-    async _apply(apply, info, stayInOverview = false) {
+    async _apply(apply, info) {
         this._busy = true;
         this._applying = true;
         try {
@@ -185,16 +173,12 @@ export default class DockTrashExtension extends Extension {
             const name = info?.name || '';
             this._notify(info?.kind === 'deb' ? _('已卸载 %s').format(name) : _('已删除 %s').format(name));
             this._refreshShell(info?.app_id);
-            if (stayInOverview)
-                this._keepOverview();
         } catch (error) {
             console.error(`dock-trash apply failed: ${error}`);
             this._showMessage(_('删除失败'), error.message || String(error));
         } finally {
             this._applying = false;
             this._busy = false;
-            if (stayInOverview)
-                this._keepOverview();
         }
     }
 
@@ -208,34 +192,33 @@ export default class DockTrashExtension extends Extension {
         }
 
         const appSystem = Shell.AppSystem.get_default();
-        try {
-            appSystem.emit('installed-changed');
-        } catch (error) {
-            console.warn(`dock-trash: installed-changed ${error}`);
+        if (this._refreshId) {
+            GLib.source_remove(this._refreshId);
+            this._refreshId = 0;
         }
 
-        this._redisplay();
-        if (this._refreshId)
-            GLib.source_remove(this._refreshId);
+        // 不要调用 dash._redisplay()：会重建 Ubuntu Dock，工作区尺寸抖动，
+        // 「文件」侧栏标签会像闪没一样（只剩图标）。
+        // 收藏移除 + AppSystem 监视 .desktop 消失即可更新 Dock。
+        // 若概览还开着，等图标从 AppSystem 消失后再刷新一次应用网格。
+        if (!Main.overview.visible)
+            return;
 
         let tries = 0;
-        this._refreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 400, () => {
+        this._refreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
             tries += 1;
             const stillThere = appId && appSystem.lookup_app(appId);
-            this._redisplay();
-            if (stillThere && tries < 20)
+            if (stillThere && tries < 16)
                 return GLib.SOURCE_CONTINUE;
             this._refreshId = 0;
+            this._redisplayAppGrid();
             return GLib.SOURCE_REMOVE;
         });
     }
 
-    _redisplay() {
-        try {
-            Main.overview?.dash?._redisplay?.();
-        } catch (error) {
-            console.warn(`dock-trash: dash redisplay ${error}`);
-        }
+    _redisplayAppGrid() {
+        if (!Main.overview.visible)
+            return;
         try {
             const controls = Main.overview?._overview?.controls;
             const appDisplay = controls?._appDisplay ?? controls?.appDisplay;

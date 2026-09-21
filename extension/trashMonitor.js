@@ -221,35 +221,44 @@ export class TrashDropMonitor {
     }
 
     _wrapDelegate(actor) {
-        if (!actor || actor._dockTrashWrapped)
+        const original = actor?._delegate;
+        if (!original || original._dockTrashHooked)
             return;
-        const original = actor._delegate;
-        actor._dockTrashOriginalDelegate = original;
-        actor._delegate = {
-            app: original?.app,
-            handleDragOver: source => {
-                if (this._hasDroppable(source))
-                    return DND.DragMotionResult.MOVE_DROP;
-                return original?.handleDragOver?.(source) ?? DND.DragMotionResult.CONTINUE;
-            },
-            acceptDrop: source => {
-                if (this._accept(source))
-                    return true;
-                return original?.acceptDrop?.(source) ?? false;
-            },
-            getDragActor: original?.getDragActor?.bind(original),
-            getDragActorSource: original?.getDragActorSource?.bind(original),
+
+        // DashIcon 的 _delegate 就是它自己，必须带 .icon / .app。
+        // 换成普通对象后，Ubuntu Dock 会认为垃圾桶不是合法图标，反复调
+        // _adjustIconSize()，Dock 宽度抖动，「文件」侧栏一直闪。
+        const prevOver = original.handleDragOver?.bind(original);
+        const prevDrop = original.acceptDrop?.bind(original);
+        original._dockTrashHooked = true;
+        original._dockTrashPrevOver = prevOver;
+        original._dockTrashPrevDrop = prevDrop;
+        original.handleDragOver = (...args) => {
+            if (this._hasDroppable(args[0]))
+                return DND.DragMotionResult.MOVE_DROP;
+            return prevOver?.(...args) ?? DND.DragMotionResult.CONTINUE;
         };
-        actor._dockTrashWrapped = true;
-        this._wrappedActors.push(actor);
+        original.acceptDrop = (...args) => {
+            if (this._accept(args[0]))
+                return true;
+            return prevDrop?.(...args) ?? false;
+        };
+        this._wrappedActors.push(original);
     }
 
     _unwrapAll() {
-        for (const actor of this._wrappedActors) {
-            if (actor._dockTrashOriginalDelegate !== undefined)
-                actor._delegate = actor._dockTrashOriginalDelegate;
-            delete actor._dockTrashOriginalDelegate;
-            delete actor._dockTrashWrapped;
+        for (const original of this._wrappedActors) {
+            if (original._dockTrashPrevOver)
+                original.handleDragOver = original._dockTrashPrevOver;
+            else
+                delete original.handleDragOver;
+            if (original._dockTrashPrevDrop)
+                original.acceptDrop = original._dockTrashPrevDrop;
+            else
+                delete original.acceptDrop;
+            delete original._dockTrashHooked;
+            delete original._dockTrashPrevOver;
+            delete original._dockTrashPrevDrop;
         }
         this._wrappedActors = [];
     }

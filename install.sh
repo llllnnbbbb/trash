@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 UUID="dock-trash@ubuntu-trash"
@@ -9,19 +9,19 @@ OUT="$ROOT/dist"
 mkdir -p "$OUT"
 find "$SRC/helper" -type d -name '__pycache__' -prune -exec rm -rf {} +
 
-pack_args=(
-    --force
-    --out-dir="$OUT"
-    --extra-source=confirmDialog.js
-    --extra-source=helperClient.js
-    --extra-source=trashMonitor.js
-    --extra-source=helper
+(
+    cd "$SRC"
+    gnome-extensions pack \
+        --force \
+        --out-dir="$OUT" \
+        --extra-source=confirmDialog.js \
+        --extra-source=helperClient.js \
+        --extra-source=trashMonitor.js \
+        --extra-source=helper
 )
 
-( cd "$SRC" && gnome-extensions pack "${pack_args[@]}" )
-
 ZIP="$OUT/${UUID}.shell-extension.zip"
-if [[ ! -f "$ZIP" ]]; then
+if [ ! -f "$ZIP" ]; then
     echo "打包失败，未生成 $ZIP" >&2
     exit 1
 fi
