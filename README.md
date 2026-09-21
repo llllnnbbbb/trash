@@ -45,8 +45,9 @@ sudo apt install packagekit-tools
 发布到 GitHub 后：
 
 ```bash
-git clone https://github.com/<你的用户名>/<仓库名>.git
-cd <仓库名>
+git clone https://github.com/llllnnbbbb/trash.git
+
+cd trash
 ```
 
 或在 GitHub 仓库页点击 **Code → Download ZIP**，解压后进入目录。
